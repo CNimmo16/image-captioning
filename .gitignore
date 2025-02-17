@@ -1,0 +1,10 @@
+__pycache__
+wandb/
+.DS_Store
+.env
+requirements.txt
+.venv/
+.pdm-python
+*/**/*.egg-info
+.python-version
+chroma_data/

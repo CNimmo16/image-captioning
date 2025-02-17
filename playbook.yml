@@ -1,0 +1,76 @@
+- name: Install docker
+  hosts: cpus
+  become: yes
+  tasks:
+    - name: Check connectivity
+      ansible.builtin.ping:
+
+    - name: Add Docker GPG key
+      shell: |
+        sudo apt-get update
+        sudo apt-get install ca-certificates curl
+        sudo install -m 0755 -d /etc/apt/keyrings
+        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+    - name: Add Docker repository
+      shell: |
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+          $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+
+    - name: update apt list
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+- name: Pull files
+  hosts: cpus
+  become: true
+  tasks:
+    - name: Make project directory
+      shell: |
+        cd ~
+        mkdir -p mlx
+
+    - name: Fetch compose file from repo
+      shell: |
+        cd ~/mlx
+        curl -0 https://raw.githubusercontent.com/cnimmo16/finditperhaps/main/docker-compose.prod.yml > docker-compose.yml
+
+    - name: Pull image
+      shell: |
+        cd ~/mlx
+        docker pull cameronnimmo/ml-search
+
+    - name: Copy env file to host
+      ansible.builtin.copy:
+        src: .env
+        dest: ~/mlx/.env
+
+- name: Run docker
+  hosts: cpus
+  become: true
+  tasks:
+    - name: Tear down existing services
+      shell: |
+        docker compose -f ~/mlx/docker-compose.yml down
+
+    - name: Create and start services
+      shell: |
+        docker compose -f ~/mlx/docker-compose.yml up -d
+      register: output
+
+    - debug:
+        var: output
