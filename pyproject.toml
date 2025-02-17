@@ -25,6 +25,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "transformers>=4.48.3",
     "scikit-learn>=1.6.1",
+    "kagglehub>=0.3.8",
 ]
 license = {text = "MIT"}
 

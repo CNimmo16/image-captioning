@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:d79a8eaa872b07379acd61fc3832a686838f367e2dd052f0d6f36649c2378662"
+content_hash = "sha256:b7886ee1ac4e8bd0fb68629e03ae11595096c276b73158ec8fa4d1de49da026a"
 
 [[metadata.targets]]
 requires_python = "==3.9.*"
@@ -933,6 +933,22 @@ groups = ["default"]
 files = [
     {file = "joblib-1.4.2-py3-none-any.whl", hash = "sha256:06d478d5674cbc267e7496a410ee875abd68e4340feff4490bcb7afb88060ae6"},
     {file = "joblib-1.4.2.tar.gz", hash = "sha256:2382c5816b2636fbd20a09e0f4e9dad4736765fdfb7dca582943b9c1366b3f0e"},
+]
+
+[[package]]
+name = "kagglehub"
+version = "0.3.8"
+requires_python = ">=3.9"
+summary = "Access Kaggle resources anywhere"
+groups = ["default"]
+dependencies = [
+    "packaging",
+    "requests",
+    "tqdm",
+]
+files = [
+    {file = "kagglehub-0.3.8-py3-none-any.whl", hash = "sha256:cd4d0d4084a093c78b4ece7c4efa95896678547a230feb86b06caa2663265e5b"},
+    {file = "kagglehub-0.3.8.tar.gz", hash = "sha256:db9202a58afc2d55ebcc799f2850562bcd832d2a487dc57b87b7e242fe9d098c"},
 ]
 
 [[package]]

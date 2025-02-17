@@ -4,7 +4,7 @@ open_remote () {
     read -p "Enter an ip to connect to: " ip
     read -p "Enter a port: " port
     
-    repo_ref="cnimmo16/transformers"
+    repo_ref="cnimmo16/image-captioning"
 
     repo_url="https://github.com/$repo_ref"
 
