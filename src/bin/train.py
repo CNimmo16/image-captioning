@@ -6,6 +6,7 @@ from pathlib import Path
 import wandb
 import numpy as np
 from transformers import CLIPProcessor, CLIPModel
+import gc
 
 import func
 import func.preprocessing
@@ -13,7 +14,6 @@ from util.typecheck import assert_shape
 from util import devices, mini, debug, constants, artifacts
 from models.decoder import Decoder
 from dataset import Flickr30kDataset
-from sklearn.model_selection import train_test_split
 
 torch.manual_seed(16)
 random.seed(16)
@@ -123,6 +123,9 @@ def main():
             optimizer.step()
 
             epoch_train_loss += loss.item()
+
+            gc.collect()
+            torch.cuda.empty_cache()
 
         decoder.eval()
         epoch_val_loss = 0
