@@ -32,9 +32,9 @@ DECODER_LAYERS = 10
 MLP_HIDDEN_DIM = 128
 
 BATCH_SIZE = 64
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.01
 DROPOUT = 0.15
-EPOCHS = 10
+EPOCHS = 100
 EARLY_STOP_AFTER_EPOCHS = 5
     
 hyperparams = {
@@ -49,22 +49,42 @@ hyperparams = {
     "dropout": DROPOUT,
     "architecture_version": 1 # change this manually when the model's architecture changes
 }
-    
-def main():
+
+def make_models():
     encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
     encoder.requires_grad_(False)
 
-    vocab_size = encoder.text_model.config.vocab_size
+    if mini.is_mini():
+        vocab_size = 3
+    else:
+        vocab_size = encoder.text_model.config.vocab_size
+    
+    embed_dim = encoder.text_model.config.hidden_size
 
-    encoder_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
-    decoder = Decoder(vocab_size, DECODER_LAYERS, encoder.text_embed_dim, MLP_HIDDEN_DIM).to(device)
+    return {
+        'vocab_size': vocab_size,
+        'embed_dim': embed_dim,
+        'encoder': encoder,
+        'encoder_processor': CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32"),
+        'decoder': Decoder(vocab_size, DECODER_LAYERS, embed_dim, MLP_HIDDEN_DIM).to(device)
+    }
+    
+def main():
+    models = make_models()
+    
+    encoder = models['encoder']
+    encoder_processor = models['encoder_processor']
+    decoder = models['decoder']
+    vocab_size = models['vocab_size']
+    embed_dim = models['embed_dim']
 
     dataset = Flickr30kDataset()
     
     if mini.is_mini():
-        train = torch.utils.data.Subset(dataset, range(1000))
-        val = torch.utils.data.Subset(dataset, range(1000, 1200))
+        image = torch.tensor([999. for _ in range(embed_dim)]).to(device)
+        caption = torch.tensor([0, 1, 2]).to(device)
+        train = [(image, caption)]
+        val = train
     else:
         val_split = 0.2
         data_count = len(dataset)
@@ -95,16 +115,23 @@ def main():
             
             optimizer.zero_grad()
             
-            encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-            
-            with torch.no_grad():
-                image_embeddings = encoder.get_image_features(**encoder_image_inputs)
+            if mini.is_mini():
+                image_embeddings = torch.stack(images).unsqueeze(1)
+            else:
+                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
+                with torch.no_grad():
+                    image_embeddings = encoder.get_image_features(**encoder_image_inputs)
                 image_embeddings = image_embeddings.unsqueeze(1)
-            
-            encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-            with torch.no_grad():
-                text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
-                        
+
+            if mini.is_mini():
+                input_ids = torch.stack(captions)
+                encoder_text_inputs = {'input_ids': input_ids}
+                text_embeddings = input_ids.unsqueeze(2).repeat(1, 1, embed_dim) # pretend text encoding
+            else:
+                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                with torch.no_grad():
+                    text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+                                                                
             E = torch.cat([image_embeddings, text_embeddings], dim=1)
                             
             logits = decoder(E)
@@ -113,6 +140,11 @@ def main():
             
             # remove image embedding
             logits_text = logits[:, 1:, :]
+            
+            print('inputs:', E)
+            print('logits:', logits)
+            print('probs:', logits_text.reshape(-1, logits_text.shape[-1]))
+            print('targets:', encoder_text_inputs['input_ids'].reshape(-1))
 
             loss = criterion(
                 logits_text.reshape(-1, logits_text.shape[-1]),
@@ -129,20 +161,23 @@ def main():
 
         decoder.eval()
         epoch_val_loss = 0
-        epoch_correct = 0
-        epoch_out_of = 0
         with torch.no_grad():
             for images, captions in tqdm.tqdm(val_loader, desc=f"> validating"):
                 batch_size = len(images)
                 
-                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-                
-                with torch.no_grad():
+                if mini.is_mini():
+                    image_embeddings = torch.stack(images).unsqueeze(1)
+                else:
+                    encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
                     image_embeddings = encoder.get_image_features(**encoder_image_inputs)
                     image_embeddings = image_embeddings.unsqueeze(1)
                 
-                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-                with torch.no_grad():
+                if mini.is_mini():
+                    input_ids = torch.stack(captions)
+                    encoder_text_inputs = {'input_ids': input_ids}
+                    text_embeddings = input_ids.unsqueeze(2).repeat(1, 1, embed_dim)
+                else:
+                    encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
                     text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
                             
                 E = torch.cat([image_embeddings, text_embeddings], dim=1)
@@ -161,12 +196,13 @@ def main():
 
                 epoch_val_loss += loss.item()
 
-        epoch_grad_norms = debug.compute_grad_norms(decoder)
+        # epoch_grad_norms = debug.compute_grad_norms(decoder)
         
-        vanishing, exploding = debug.detect_gradient_issues(epoch_grad_norms, vanish_thresh=1e-6, explode_thresh=10.0)
+        # vanishing, exploding = debug.detect_gradient_issues(epoch_grad_norms, vanish_thresh=1e-6, explode_thresh=10.0)
         
-        vanishing_gradients = len(vanishing)
-        exploding_gradients = len(exploding)
+        # vanishing_gradients = len(vanishing)
+        # exploding_gradients = len(exploding)
+        vanishing_gradients, exploding_gradients = 0, 0
         
         epoch_train_loss = epoch_train_loss / len(train_loader)
         epoch_val_loss = epoch_val_loss / len(val_loader)
@@ -186,14 +222,15 @@ def main():
             val_loss_failed_to_improve_for_epochs = 0
             best_state_dict = decoder.state_dict()
             
-            epoch_save_path = os.path.join(constants.DATA_PATH, f"epoch-weights/decoder-weights_epoch-{epoch}.generated.pt")
-            torch.save(best_state_dict, epoch_save_path)
+            if not mini.is_mini():
+                epoch_save_path = os.path.join(constants.DATA_PATH, f"epoch-weights/decoder-weights_epoch-{epoch}.generated.pt")
+                torch.save(best_state_dict, epoch_save_path)
         else:
             val_loss_failed_to_improve_for_epochs += 1
 
-        if val_loss_failed_to_improve_for_epochs == EARLY_STOP_AFTER_EPOCHS:
-            print(f"Validation loss failed to improve for {EARLY_STOP_AFTER_EPOCHS} epochs. Early stopping now.")
-            break
+        # if val_loss_failed_to_improve_for_epochs == EARLY_STOP_AFTER_EPOCHS:
+        #     print(f"Validation loss failed to improve for {EARLY_STOP_AFTER_EPOCHS} epochs. Early stopping now.")
+        #     break
     
     model_save_path = os.path.join(constants.DATA_PATH, 'decoder-weights.generated.pt')
     torch.save(best_state_dict, model_save_path)

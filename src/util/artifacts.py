@@ -15,7 +15,7 @@ def download_from_wandb(ref: str, file: str, type: str, meta: dict = None):
         return env_override
 
     if meta:
-        artifact_collections = api.artifact_type(type_name=type, project='cnimmo16/transformers').collections()
+        artifact_collections = api.artifact_type(type_name=type, project='cnimmo16/image-captioning').collections()
         artifact = None
         for coll in artifact_collections:
             if coll.name == ref:
@@ -30,7 +30,7 @@ def download_from_wandb(ref: str, file: str, type: str, meta: dict = None):
         if artifact is None:
             raise Exception(f"Could not find artifact {ref} with metadata {meta}")
     else:
-        artifact = api.artifact(f"cnimmo16/transformers/{ref}:latest")
+        artifact = api.artifact(f"cnimmo16/image-captioning/{ref}:latest")
     directory = artifact.download(os.path.join(dirname, '../../artifacts'))
     return os.path.join(directory, file)
     

@@ -25,9 +25,9 @@ class Attention(torch.nn.Module):
             # Create a causal mask (lower-triangular matrix).
             # Assumes that the query and key sequences are of equal length.
             seq_len = scores.size(-1)
-            causal_mask = torch.tril(torch.ones(seq_len, seq_len, device=scores.device)).bool()
+            causal_mask = torch.triu(torch.ones(seq_len, seq_len, device=scores.device), diagonal=1).bool()
             # Mask out future tokens by setting their scores to -infinity.
-            scores = scores.masked_fill(~causal_mask, float('-inf'))
+            scores = scores.masked_fill(causal_mask, float('-inf'))
         
         A = torch.nn.functional.softmax(scores, dim=-1)
         
