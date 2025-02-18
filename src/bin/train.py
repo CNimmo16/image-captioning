@@ -185,6 +185,9 @@ def main():
             best_val_loss = epoch_val_loss
             val_loss_failed_to_improve_for_epochs = 0
             best_state_dict = decoder.state_dict()
+            
+            epoch_save_path = os.path.join(constants.DATA_PATH, f"epoch-weights/decoder-weights_epoch-{epoch}.generated.pt")
+            torch.save(best_state_dict, epoch_save_path)
         else:
             val_loss_failed_to_improve_for_epochs += 1
 
