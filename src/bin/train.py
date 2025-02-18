@@ -177,7 +177,7 @@ def main():
                 assert_shape(logits, (batch_size, '*', vocab_size))
                 
                 # remove image embedding
-                logits_text = logits[:, 1:, :]
+                logits_text = logits[:, :-1, :]
                 
                 loss = criterion(
                     logits_text.reshape(-1, logits_text.shape[-1]),
