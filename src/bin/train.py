@@ -25,22 +25,17 @@ if is_mini:
 
 device = devices.get_device()
 
-IMAGE_DIMS = (56, 56)
-PATCH_SIZE = (4, 4)
-
 DECODER_LAYERS = 10
 MLP_HIDDEN_DIM = 128
 
 BATCH_SIZE = 64
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.001
 DROPOUT = 0.15
-EPOCHS = 100
+EPOCHS = 10
 EARLY_STOP_AFTER_EPOCHS = 5
     
 hyperparams = {
     "is_mini": is_mini,
-    "image_dims": "x".join(map(str, IMAGE_DIMS)),
-    "patch_size": "x".join(map(str, PATCH_SIZE)),
     "decoder_layers": DECODER_LAYERS,
     "mlp_hidden_dim": MLP_HIDDEN_DIM,
     "dropout": DROPOUT,
@@ -139,13 +134,8 @@ def main():
             assert_shape(logits, (batch_size, '*', vocab_size))
             
             # remove image embedding
-            logits_text = logits[:, 1:, :]
+            logits_text = logits[:, :-1, :]
             
-            print('inputs:', E)
-            print('logits:', logits)
-            print('probs:', logits_text.reshape(-1, logits_text.shape[-1]))
-            print('targets:', encoder_text_inputs['input_ids'].reshape(-1))
-
             loss = criterion(
                 logits_text.reshape(-1, logits_text.shape[-1]),
                 encoder_text_inputs['input_ids'].reshape(-1)
@@ -196,13 +186,12 @@ def main():
 
                 epoch_val_loss += loss.item()
 
-        # epoch_grad_norms = debug.compute_grad_norms(decoder)
+        epoch_grad_norms = debug.compute_grad_norms(decoder)
         
-        # vanishing, exploding = debug.detect_gradient_issues(epoch_grad_norms, vanish_thresh=1e-6, explode_thresh=10.0)
+        vanishing, exploding = debug.detect_gradient_issues(epoch_grad_norms, vanish_thresh=1e-6, explode_thresh=10.0)
         
-        # vanishing_gradients = len(vanishing)
-        # exploding_gradients = len(exploding)
-        vanishing_gradients, exploding_gradients = 0, 0
+        vanishing_gradients = len(vanishing)
+        exploding_gradients = len(exploding)
         
         epoch_train_loss = epoch_train_loss / len(train_loader)
         epoch_val_loss = epoch_val_loss / len(val_loader)
@@ -228,9 +217,9 @@ def main():
         else:
             val_loss_failed_to_improve_for_epochs += 1
 
-        # if val_loss_failed_to_improve_for_epochs == EARLY_STOP_AFTER_EPOCHS:
-        #     print(f"Validation loss failed to improve for {EARLY_STOP_AFTER_EPOCHS} epochs. Early stopping now.")
-        #     break
+        if val_loss_failed_to_improve_for_epochs == EARLY_STOP_AFTER_EPOCHS:
+            print(f"Validation loss failed to improve for {EARLY_STOP_AFTER_EPOCHS} epochs. Early stopping now.")
+            break
     
     model_save_path = os.path.join(constants.DATA_PATH, 'decoder-weights.generated.pt')
     torch.save(best_state_dict, model_save_path)

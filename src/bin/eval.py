@@ -52,33 +52,28 @@ def main():
 
             output_tokens = []
 
-            for _ in range(max_length):
-                print('E', E)
-                                        
+            for i in range(max_length):                                        
                 logits = decoder(E)
-                print('logits', logits)
-                logits_text = logits[:, 1:, :]
+                logits_text = logits[:, i + 1, :]
                 logits_text = logits_text.reshape(-1, logits_text.shape[-1])
-                print('logits_text', logits_text)
                 
                 # # Apply temperature scaling
                 # logits = logits / temperature
                 
                 # # Top-k and top-p filtering
                 # filtered_logits = top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
-                
-                print('probs', logits_text)
-                
+                                
                 # # Sample next token
                 probs = torch.nn.functional.softmax(logits_text, dim=-1).squeeze(1)
                 
                 # print(probs)
-                # next_token = torch.multinomial(probs, num_samples=1)
-                next_token_idx = torch.argmax(probs, dim=-1)
-                
-                next_token = next_token_idx # TODO: lookup
-                print('next', next_token)
-                
+                if mini.is_mini():
+                    next_token_idx = torch.argmax(probs, dim=-1)
+                    
+                    next_token = next_token_idx
+                else:
+                    next_token = torch.multinomial(probs, num_samples=1)
+                                    
                 next_token = torch.tensor([[next_token]]).to(device)
 
                 if mini.is_mini():
