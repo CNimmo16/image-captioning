@@ -41,7 +41,6 @@ hyperparams = {
     "dropout": DROPOUT,
     "learning_rate": LEARNING_RATE,
     "batch_size": BATCH_SIZE,
-    "dropout": DROPOUT,
     "architecture_version": 1 # change this manually when the model's architecture changes
 }
 
@@ -61,7 +60,7 @@ def make_models():
         'embed_dim': embed_dim,
         'encoder': encoder,
         'encoder_processor': CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32"),
-        'decoder': Decoder(vocab_size, DECODER_LAYERS, embed_dim, MLP_HIDDEN_DIM).to(device)
+        'decoder': Decoder(vocab_size, DECODER_LAYERS, embed_dim, MLP_HIDDEN_DIM, DROPOUT).to(device)
     }
     
 def main():
@@ -95,7 +94,12 @@ def main():
     } | hyperparams)
 
     criterion = torch.nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.Adam(decoder.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(decoder.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.98))
+    
+    for layer in decoder.layers:
+        for param in layer.attention.parameters():
+            if len(param.shape) > 1:  # Only apply to weight matrices, not biases
+                torch.nn.init.xavier_uniform_(param)
     
     val_loss_failed_to_improve_for_epochs = 0
     best_val_loss = float('inf')
@@ -126,7 +130,7 @@ def main():
                 encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
                 with torch.no_grad():
                     text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
-                                                                
+
             E = torch.cat([image_embeddings, text_embeddings], dim=1)
                             
             logits = decoder(E)
@@ -195,6 +199,10 @@ def main():
         
         epoch_train_loss = epoch_train_loss / len(train_loader)
         epoch_val_loss = epoch_val_loss / len(val_loader)
+        
+        if exploding_gradients > 0 or vanishing_gradients > 0:
+            print('Clipping gradients...')
+            torch.nn.utils.clip_grad_norm_(decoder.parameters(), 1.0)
                             
         print(f"Train loss: {epoch_train_loss}, val loss: {epoch_val_loss}\n")
 

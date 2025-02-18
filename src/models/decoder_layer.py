@@ -2,7 +2,7 @@ import torch
 from models.attention import Attention
 
 class DecoderLayer(torch.nn.Module):
-    def __init__(self, embed_dim: int, mlp_hidden_dim: int):
+    def __init__(self, embed_dim: int, mlp_hidden_dim: int, dropout: int):
         super().__init__()
         
         self.norm_1 = torch.nn.LayerNorm(embed_dim)
@@ -14,8 +14,11 @@ class DecoderLayer(torch.nn.Module):
         self.mlp = torch.nn.Sequential(
             torch.nn.Linear(embed_dim, mlp_hidden_dim),
             torch.nn.GELU(),
+            torch.nn.Dropout(dropout),
             torch.nn.Linear(mlp_hidden_dim, embed_dim)
         )
+        
+        self.dropout = torch.nn.Dropout(dropout)
         
     def forward(self, E: torch.Tensor):
 
@@ -23,9 +26,9 @@ class DecoderLayer(torch.nn.Module):
         
         dE = self.attention(E, E)
         
-        E = E + dE
+        E = E + self.dropout(dE)
         
-        E = E + self.mlp(E)
+        E = E + self.dropout(self.mlp(E))
         
         E = self.norm_2(E)
         

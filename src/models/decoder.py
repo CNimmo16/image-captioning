@@ -7,7 +7,7 @@ from util.typecheck import assert_shape
 device = devices.get_device()
 
 class Decoder(torch.nn.Module):
-    def __init__(self, vocab_size: int, decoder_layers: int, embed_dim: int, mlp_hidden_dim: int):
+    def __init__(self, vocab_size: int, decoder_layers: int, embed_dim: int, mlp_hidden_dim: int, dropout: int):
         super().__init__()
         
         self.vocab_size = vocab_size
@@ -16,7 +16,7 @@ class Decoder(torch.nn.Module):
         
         self.text_projection = torch.nn.Linear(embed_dim, embed_dim)
         
-        self.layers = torch.nn.ModuleList([DecoderLayer(embed_dim, mlp_hidden_dim) for _ in range(decoder_layers)])
+        self.layers = torch.nn.ModuleList([DecoderLayer(embed_dim, mlp_hidden_dim, dropout) for _ in range(decoder_layers)])
         
         self.final_projection = torch.nn.Linear(embed_dim, vocab_size)
         

@@ -3,9 +3,13 @@ import torch
 from dataset import Flickr30kDataset
 from bin.train import make_models, collate
 from util import artifacts, devices, mini
+from transformers import CLIPTokenizer
+from matplotlib import pyplot as plt
 
 def main():
     models = make_models()
+
+    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
     
     device = devices.get_device()
 
@@ -22,18 +26,19 @@ def main():
     
     dataset = Flickr30kDataset()
     
-    IMAGE_COUNT = 1
+    IMAGE_COUNT = 10
 
     if mini.is_mini():
         image = torch.tensor([999. for _ in range(embed_dim)]).to(device)
         caption = torch.tensor([0, 1, 2]).to(device)
         dataset = [(image, caption)]
     else:
-        dataset = torch.utils.data.Subset(dataset, range(len(dataset) - IMAGE_COUNT, len(dataset)))
+        pass
+        # dataset = torch.utils.data.Subset(dataset, range(len(dataset) - IMAGE_COUNT, len(dataset)))
         
     eval_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=collate)
     
-    max_length = 5
+    max_length = 50
     
     with torch.no_grad():
         for images, captions in eval_loader:
@@ -85,10 +90,24 @@ def main():
                 E = torch.cat([E, next_token_embeddings], dim=1)
                 output_tokens.append(next_token)
                 
-                # # Stop if EOS token is generated
-                # if next_token.item() == tokenizer.eos_token_id:
-                #     break
+                # Stop if EOS token is generated
+                if next_token.item() == tokenizer.eos_token_id:
+                    break
             output_tokens = [int(token.item()) for token in output_tokens]
             
-            # decoded = encoder_processor.batch_decode(output_tokens, skip_special_tokens=False)
-            print(output_tokens)
+            decoded = encoder_processor.batch_decode(output_tokens, skip_special_tokens=False)
+            
+            desc = ' '.join(decoded)
+            
+            fig, ax = plt.subplots(figsize=(6, 8))
+            ax.set_xlim(0, 10)
+            ax.set_ylim(0, 15)  # Increased y-limit for more vertical space
+
+            text = desc
+            ax.text(5, 13, text, fontsize=12, ha="center", va="center", wrap=True,
+                bbox=dict(facecolor='lightgray', edgecolor='black', boxstyle='round,pad=0.5'))
+            
+            ax.imshow(images[0], extent=[1, 9, 2, 12], aspect='auto')
+
+            ax.set_axis_off()
+            plt.show()
