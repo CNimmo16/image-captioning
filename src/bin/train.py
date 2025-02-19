@@ -7,6 +7,7 @@ import wandb
 import numpy as np
 from transformers import CLIPProcessor, CLIPModel
 import gc
+import time
 
 import func
 import func.preprocessing
@@ -75,7 +76,7 @@ def main():
         train = dataset
         val = dataset
     else:
-        val_split = 0.2
+        val_split = 0.1
         data_count = len(dataset)
         train = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split))))
         val = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split)), data_count))
@@ -100,24 +101,38 @@ def main():
     best_val_loss = float('inf')
     best_state_dict = None
     
+    train_cache = {}
+    val_cache = {}
+    
     for epoch in range(EPOCHS):
         print(f"Epoch {epoch + 1}")
         decoder.train()
         epoch_train_loss = 0
-        for images, captions in tqdm.tqdm(train_loader, desc=f"> training"):
+        for batch_idx, (images, captions) in tqdm.tqdm(enumerate(train_loader), desc=f"> training"):
             batch_size = len(images)
             
             optimizer.zero_grad()
             
-            encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-            with torch.no_grad():
-                image_embeddings = encoder.get_image_features(**encoder_image_inputs)
-            image_embeddings = image_embeddings.unsqueeze(1)
+            if batch_idx in train_cache:
+                cached = train_cache[batch_idx]
+                image_embeddings = cached['images']
+                text_embeddings = cached['text']
+            else:
+                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
+                with torch.no_grad():
+                    image_embeddings = encoder.get_image_features(**encoder_image_inputs)
+                image_embeddings = image_embeddings.unsqueeze(1)
 
-            encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-            with torch.no_grad():
-                text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                with torch.no_grad():
+                    text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
+                train_cache[batch_idx] = {
+                    'images': image_embeddings,
+                    'text': text_embeddings
+                }
+
+            time_start = time.time()
             E = torch.cat([image_embeddings, text_embeddings], dim=1)
                             
             logits = decoder(E)
@@ -136,6 +151,8 @@ def main():
             optimizer.step()
 
             epoch_train_loss += loss.item()
+            time_end = time.time()
+            print(f"Did the rest in {time_end - time_start}")
 
             gc.collect()
             torch.cuda.empty_cache()
@@ -145,13 +162,23 @@ def main():
         with torch.no_grad():
             for images, captions in tqdm.tqdm(val_loader, desc=f"> validating"):
                 batch_size = len(images)
-                
-                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-                image_embeddings = encoder.get_image_features(**encoder_image_inputs)
-                image_embeddings = image_embeddings.unsqueeze(1)
-                
-                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-                text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+
+                if batch_idx in val_cache:
+                    cached = val_cache[batch_idx]
+                    image_embeddings = cached['images']
+                    text_embeddings = cached['text']
+                else:
+                    encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
+                    image_embeddings = encoder.get_image_features(**encoder_image_inputs)
+                    image_embeddings = image_embeddings.unsqueeze(1)
+                    
+                    encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                    text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+
+                    val_cache[batch_idx] = {
+                        'images': image_embeddings,
+                        'text': text_embeddings
+                    }
                             
                 E = torch.cat([image_embeddings, text_embeddings], dim=1)
                                 
