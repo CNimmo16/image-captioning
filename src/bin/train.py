@@ -82,8 +82,10 @@ def main():
         val = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split)), data_count))
 
     # Create DataLoaders for training and validation
-    train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate)
-    val_loader = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate)
+    train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, collate_fn=collate, shuffle=False) # no per-example shuffle here - see per-batch shuffling in training loop below
+    train_loop = list(enumerate(train_loader))
+
+    val_loader = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, collate_fn=collate, shuffle=True)
 
     wandb.init(project='image-captioning', name='image-decoder', config={
         "training_data_size": len(train_loader),
@@ -111,7 +113,10 @@ def main():
         if epoch > 0:
             decoder.train()
             epoch_train_loss = 0
-            train_loop = list(enumerate(train_loader))
+
+            # shuffle here so that we can reliably cache an entire batch by its index (rather than shuffling examples within the batches)
+            random.shuffle(train_loop)
+
             for batch_idx, (images, captions) in tqdm.tqdm(train_loop, desc=f"> training"):
                 batch_size = len(images)
                 
@@ -169,29 +174,16 @@ def main():
         decoder.eval()
         epoch_val_loss = 0
         with torch.no_grad():
-            val_loop = list(enumerate(val_loader))
-            for batch_idx, (images, captions) in tqdm.tqdm(val_loop, desc=f"> validating"):
+            for images, captions in tqdm.tqdm(val_loader, desc=f"> validating"):
                 batch_size = len(images)
 
-                if batch_idx in val_cache:
-                    cached = val_cache[batch_idx]
-                    image_embeddings = cached['image_embeddings']
-                    encoder_text_inputs = cached['text_inputs']
-                    text_embeddings = cached['text_embeddings']
-                else:
-                    encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-                    image_embeddings = encoder.get_image_features(**encoder_image_inputs)
-                    image_embeddings = image_embeddings.unsqueeze(1)
-                    
-                    encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-                    text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
-
-                    val_cache[batch_idx] = {
-                        'image_embeddings': image_embeddings,
-                        'text_inputs': encoder_text_inputs,
-                        'text_embeddings': text_embeddings
-                    }
-                            
+                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
+                image_embeddings = encoder.get_image_features(**encoder_image_inputs)
+                image_embeddings = image_embeddings.unsqueeze(1)
+                
+                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+                        
                 E = torch.cat([image_embeddings, text_embeddings], dim=1)
                                 
                 logits = decoder(E)
