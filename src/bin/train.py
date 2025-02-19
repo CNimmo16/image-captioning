@@ -123,7 +123,11 @@ def main():
                     image_embeddings = encoder.get_image_features(**encoder_image_inputs)
                 image_embeddings = image_embeddings.unsqueeze(1)
 
-                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                try:
+                    encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                except:
+                    print('ERROR cant encode, received:', captions)
+                    raise Exception()
                 with torch.no_grad():
                     text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
