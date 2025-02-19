@@ -36,6 +36,7 @@ package-dir = "src"
 [tool.pdm.scripts]
 load-data = {call = "bin.load_data:main"}
 train = {call = "bin.train:main"}
+load-and-train = "./load_and_train.sh"
 eval = {call = "bin.eval:main"}
 deploy = "./deploy.sh"
 ssh = "./ssh.sh"
