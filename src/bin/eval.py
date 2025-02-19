@@ -28,7 +28,7 @@ def main():
         
     eval_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate)
     
-    max_length = 300
+    max_length = tokenizer.model_max_length
     
     with torch.no_grad():
         for images, captions in eval_loader:
@@ -69,9 +69,7 @@ def main():
 
             token_ids = [int(token.item()) for token in token_ids]
             
-            decoded = encoder_processor.batch_decode(token_ids, skip_special_tokens=False)
-            
-            desc = ' '.join(decoded)
+            desc = tokenizer.decode(token_ids, skip_special_tokens=True)
             
             fig, ax = plt.subplots(figsize=(6, 8))
             ax.set_xlim(0, 10)
