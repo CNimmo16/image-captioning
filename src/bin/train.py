@@ -105,7 +105,8 @@ def main():
     val_cache = {}
     
     for epoch in range(EPOCHS):
-        print(f"Epoch {epoch} {" (initial validation)" if epoch == 0 else ""}")
+        suffix = " (initial validation)" if epoch == 0 else ""
+        print(f"Epoch {epoch} {suffix}")
 
         if epoch > 0:
             decoder.train()
@@ -118,8 +119,9 @@ def main():
                 
                 if batch_idx in train_cache:
                     cached = train_cache[batch_idx]
-                    image_embeddings = cached['images']
-                    text_embeddings = cached['text']
+                    image_embeddings = cached['image_embeddings']
+                    encoder_text_inputs = cached['text_inputs']
+                    text_embeddings = cached['text_embeddings']
                 else:
                     encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
                     with torch.no_grad():
@@ -135,8 +137,9 @@ def main():
                         text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
                     train_cache[batch_idx] = {
-                        'images': image_embeddings,
-                        'text': text_embeddings
+                        'image_embeddings': image_embeddings,
+                        'text_inputs': encoder_text_inputs,
+                        'text_embeddings': text_embeddings
                     }
 
                 E = torch.cat([image_embeddings, text_embeddings], dim=1)
@@ -172,8 +175,9 @@ def main():
 
                 if batch_idx in val_cache:
                     cached = val_cache[batch_idx]
-                    image_embeddings = cached['images']
-                    text_embeddings = cached['text']
+                    image_embeddings = cached['image_embeddings']
+                    encoder_text_inputs = cached['text_inputs']
+                    text_embeddings = cached['text_embeddings']
                 else:
                     encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
                     image_embeddings = encoder.get_image_features(**encoder_image_inputs)
@@ -182,9 +186,10 @@ def main():
                     encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
                     text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
-                    val_cache[batch_idx] = {
-                        'images': image_embeddings,
-                        'text': text_embeddings
+                    train_cache[batch_idx] = {
+                        'image_embeddings': image_embeddings,
+                        'text_inputs': encoder_text_inputs,
+                        'text_embeddings': text_embeddings
                     }
                             
                 E = torch.cat([image_embeddings, text_embeddings], dim=1)
