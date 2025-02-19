@@ -14,9 +14,7 @@ import func.preprocessing
 from util.typecheck import assert_shape
 from util import devices, mini, debug, constants, artifacts
 from models.decoder import Decoder
-from models.text_encoder import TextEncoder
 from dataset import make_flickr_dataset, make_recipe_dataset
-from transformers import CLIPTokenizer
 
 torch.manual_seed(16)
 random.seed(16)
@@ -48,26 +46,17 @@ hyperparams = {
 }
 
 def make_models():
-    clip_encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-    clip_encoder.requires_grad_(False)
+    encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
+    encoder.requires_grad_(False)
 
-    # vocab_size = encoder.text_model.config.vocab_size
+    vocab_size = encoder.text_model.config.vocab_size
     
-    # embed_dim = encoder.text_model.config.hidden_size
-
-    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-
-    vocab_size = tokenizer.vocab_size
-
-    embed_dim = 512
-
-    text_encoder = TextEncoder(vocab_size, embed_dim).to(device)
+    embed_dim = encoder.text_model.config.hidden_size
 
     return {
         'vocab_size': vocab_size,
         'embed_dim': embed_dim,
-        'text_encoder': text_encoder,
-        'get_image_features': clip_encoder.get_image_features,
+        'encoder': encoder,
         'encoder_processor': CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32"),
         'decoder': Decoder(vocab_size, DECODER_LAYERS, embed_dim, MLP_HIDDEN_DIM, DROPOUT).to(device)
     }
@@ -75,8 +64,7 @@ def make_models():
 def main():
     models = make_models()
     
-    text_encoder = models['text_encoder']
-    get_image_features = models['get_image_features']
+    encoder = models['encoder']
     encoder_processor = models['encoder_processor']
     decoder = models['decoder']
     vocab_size = models['vocab_size']
@@ -104,7 +92,7 @@ def main():
     } | hyperparams)
 
     criterion = torch.nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.Adam(list(decoder.parameters()) + list(text_encoder.parameters()), lr=LEARNING_RATE, betas=(0.9, 0.98))
+    optimizer = torch.optim.Adam(decoder.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.98))
     
     for layer in decoder.layers:
         for param in layer.attention.parameters():
@@ -142,7 +130,7 @@ def main():
                 else:
                     encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
                     with torch.no_grad():
-                        image_embeddings = get_image_features(**encoder_image_inputs)
+                        image_embeddings = encoder.get_image_features(**encoder_image_inputs)
                     image_embeddings = image_embeddings.unsqueeze(1)
 
                     try:
@@ -151,7 +139,7 @@ def main():
                         print('ERROR cant encode, received:', captions)
                         raise Exception()
                     with torch.no_grad():
-                        text_embeddings = text_encoder(input_ids=encoder_text_inputs['input_ids'])
+                        text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
                     train_cache[batch_idx] = {
                         'image_embeddings': image_embeddings,
@@ -190,11 +178,11 @@ def main():
                 batch_size = len(images)
 
                 encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-                image_embeddings = get_image_features(**encoder_image_inputs)
+                image_embeddings = encoder.get_image_features(**encoder_image_inputs)
                 image_embeddings = image_embeddings.unsqueeze(1)
                 
                 encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-                text_embeddings = text_encoder(input_ids=encoder_text_inputs['input_ids'])
+                text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
                         
                 E = torch.cat([image_embeddings, text_embeddings], dim=1)
                                 
