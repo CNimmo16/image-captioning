@@ -132,7 +132,6 @@ def main():
                     'text': text_embeddings
                 }
 
-            time_start = time.time()
             E = torch.cat([image_embeddings, text_embeddings], dim=1)
                             
             logits = decoder(E)
@@ -151,8 +150,6 @@ def main():
             optimizer.step()
 
             epoch_train_loss += loss.item()
-            time_end = time.time()
-            print(f"Did the rest in {time_end - time_start}")
 
             gc.collect()
             torch.cuda.empty_cache()
