@@ -6,7 +6,7 @@ import swifter
 
 dirname = os.path.dirname(__file__)
 
-NUM_IMAGES = 10000
+NUM_IMAGES = 30000
 
 def main():
     data_path = kagglehub.dataset_download("irkaal/foodcom-recipes-and-reviews")
