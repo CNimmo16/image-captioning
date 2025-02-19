@@ -108,7 +108,8 @@ def main():
         print(f"Epoch {epoch + 1}")
         decoder.train()
         epoch_train_loss = 0
-        for batch_idx, (images, captions) in tqdm.tqdm(enumerate(train_loader), desc=f"> training"):
+        train_loop = list(enumerate(train_loader))
+        for batch_idx, (images, captions) in tqdm.tqdm(train_loop, desc=f"> training"):
             batch_size = len(images)
             
             optimizer.zero_grad()
@@ -161,7 +162,8 @@ def main():
         decoder.eval()
         epoch_val_loss = 0
         with torch.no_grad():
-            for images, captions in tqdm.tqdm(val_loader, desc=f"> validating"):
+            val_loop = list(enumerate(val_loader))
+            for batch_idx, (images, captions) in tqdm.tqdm(val_loop, desc=f"> validating"):
                 batch_size = len(images)
 
                 if batch_idx in val_cache:
