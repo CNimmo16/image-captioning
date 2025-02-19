@@ -66,7 +66,7 @@ class RecipeDataset(torch.utils.data.Dataset):
         
         self.captions_df.rename({
             'Image_Name': 'image_name',
-            'Instructions': 'caption_text'
+            'Title': 'caption_text'
         }, axis=1, inplace=True)
         
         self.captions_df = self.captions_df[['image_name', 'caption_text']]
