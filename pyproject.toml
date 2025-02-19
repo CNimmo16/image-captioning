@@ -34,6 +34,7 @@ distribution = true
 package-dir = "src"
 
 [tool.pdm.scripts]
+load-data = {call = "bin.load_data:main"}
 train = {call = "bin.train:main"}
 eval = {call = "bin.eval:main"}
 deploy = "./deploy.sh"

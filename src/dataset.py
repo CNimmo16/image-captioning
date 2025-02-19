@@ -3,6 +3,9 @@ import pandas as pd
 import PIL
 import os
 import numpy as np
+import shutil
+import requests
+import random
 import kagglehub
 
 dirname = os.path.dirname(__file__)
@@ -52,7 +55,7 @@ def make_flickr_dataset(mini: bool):
 
     return dataset
 
-class RecipeDataset(torch.utils.data.Dataset):
+class RecipeDatasetA(torch.utils.data.Dataset):
     def __init__(self, transform=None):
         data_path = kagglehub.dataset_download("pes12017000148/food-ingredients-and-recipe-dataset-with-images")
 
@@ -93,8 +96,38 @@ class RecipeDataset(torch.utils.data.Dataset):
             
         return image, caption_text
 
+class RecipeDatasetB(torch.utils.data.Dataset):
+    def __init__(self, transform=None):
+        recipes_path = os.path.join(dirname, '../data/recipes.csv')
+        
+        self.transform = transform
+        
+        self.df = pd.read_csv(recipes_path)
+
+        self.image_dir = os.path.join(dirname, '../data/dataset-b-images')
+
+    def __len__(self):
+        return len(self.df)
+    
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        
+        img_name = f"{row['RecipeId']}.jpg"
+        
+        image_path = os.path.join(self.image_dir, img_name)
+        
+        image = PIL.Image.open(image_path).convert('RGB')
+        if self.transform:
+            image = self.transform(image)
+        
+        caption_text = row['Name']
+            
+        return image, caption_text
+
 def make_recipe_dataset(mini: bool):
-    dataset = RecipeDataset()
+    datasetA = RecipeDatasetA()
+    datasetB = RecipeDatasetB()
+    dataset = torch.utils.data.ConcatDataset([datasetA, datasetB])
 
     if mini:
         dataset = torch.utils.data.Subset(dataset, range(5))
