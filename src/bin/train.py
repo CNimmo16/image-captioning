@@ -47,7 +47,10 @@ hyperparams = {
 
 def make_models():
     encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-    encoder.requires_grad_(False)
+    
+    for param in encoder.vision_model.parameters():
+        # freeze vision model while finetuning text
+        param.requires_grad = False
 
     vocab_size = encoder.text_model.config.vocab_size
     
@@ -92,7 +95,7 @@ def main():
     } | hyperparams)
 
     criterion = torch.nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.Adam(decoder.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.98))
+    optimizer = torch.optim.Adam(list(decoder.parameters()) + list(encoder.parameters()), lr=LEARNING_RATE, betas=(0.9, 0.98))
     
     for layer in decoder.layers:
         for param in layer.attention.parameters():
