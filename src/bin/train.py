@@ -42,7 +42,7 @@ hyperparams = {
     "dropout": DROPOUT,
     "learning_rate": LEARNING_RATE,
     "batch_size": BATCH_SIZE,
-    "architecture_version": 3 # change this manually when the model's architecture changes
+    "architecture_version": 4 # change this manually when the model's architecture changes
 }
 
 def make_models():
