@@ -24,6 +24,8 @@ apt-get install python3.9
 2. Follow steps from [setup](#setup) to install PDM and python on the GPU
 3. Run `FULLRUN=1 pdm run train` to train the model in full mode with all the data
 
+Alternatively, run `FULLRUN=1 nohup pdm run train &` to run the training in a background process and send the output to nohup.out, allowing you to exit your ssh session and keep the training running
+
 ## Running inference locally
 
 1. Run `docker compose -f docker-compose.dev.yml up` to spin up the chroma (vector database) instance
