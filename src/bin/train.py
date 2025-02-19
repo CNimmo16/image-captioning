@@ -13,7 +13,7 @@ import func.preprocessing
 from util.typecheck import assert_shape
 from util import devices, mini, debug, constants, artifacts
 from models.decoder import Decoder
-from dataset import Flickr30kDataset
+from dataset import make_flickr_dataset
 
 torch.manual_seed(16)
 random.seed(16)
@@ -31,7 +31,7 @@ MLP_HIDDEN_DIM = 128
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 DROPOUT = 0.15
-EPOCHS = 10
+EPOCHS = 100
 EARLY_STOP_AFTER_EPOCHS = 5
     
 hyperparams = {
@@ -48,10 +48,7 @@ def make_models():
     encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
     encoder.requires_grad_(False)
 
-    if mini.is_mini():
-        vocab_size = 3
-    else:
-        vocab_size = encoder.text_model.config.vocab_size
+    vocab_size = encoder.text_model.config.vocab_size
     
     embed_dim = encoder.text_model.config.hidden_size
 
@@ -72,18 +69,12 @@ def main():
     vocab_size = models['vocab_size']
     embed_dim = models['embed_dim']
 
-    dataset = Flickr30kDataset()
-    
-    if mini.is_mini():
-        image = torch.tensor([999. for _ in range(embed_dim)]).to(device)
-        caption = torch.tensor([0, 1, 2]).to(device)
-        train = [(image, caption)]
-        val = train
-    else:
-        val_split = 0.2
-        data_count = len(dataset)
-        train = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split))))
-        val = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split)), data_count))
+    dataset = make_flickr_dataset(mini.is_mini())
+
+    val_split = 0.2
+    data_count = len(dataset)
+    train = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split))))
+    val = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split)), data_count))
 
     # Create DataLoaders for training and validation
     train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate)
@@ -114,22 +105,14 @@ def main():
             
             optimizer.zero_grad()
             
-            if mini.is_mini():
-                image_embeddings = torch.stack(images).unsqueeze(1)
-            else:
-                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-                with torch.no_grad():
-                    image_embeddings = encoder.get_image_features(**encoder_image_inputs)
-                image_embeddings = image_embeddings.unsqueeze(1)
+            encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
+            with torch.no_grad():
+                image_embeddings = encoder.get_image_features(**encoder_image_inputs)
+            image_embeddings = image_embeddings.unsqueeze(1)
 
-            if mini.is_mini():
-                input_ids = torch.stack(captions)
-                encoder_text_inputs = {'input_ids': input_ids}
-                text_embeddings = input_ids.unsqueeze(2).repeat(1, 1, embed_dim) # pretend text encoding
-            else:
-                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-                with torch.no_grad():
-                    text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+            encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+            with torch.no_grad():
+                text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
             E = torch.cat([image_embeddings, text_embeddings], dim=1)
                             
@@ -159,20 +142,12 @@ def main():
             for images, captions in tqdm.tqdm(val_loader, desc=f"> validating"):
                 batch_size = len(images)
                 
-                if mini.is_mini():
-                    image_embeddings = torch.stack(images).unsqueeze(1)
-                else:
-                    encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-                    image_embeddings = encoder.get_image_features(**encoder_image_inputs)
-                    image_embeddings = image_embeddings.unsqueeze(1)
+                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
+                image_embeddings = encoder.get_image_features(**encoder_image_inputs)
+                image_embeddings = image_embeddings.unsqueeze(1)
                 
-                if mini.is_mini():
-                    input_ids = torch.stack(captions)
-                    encoder_text_inputs = {'input_ids': input_ids}
-                    text_embeddings = input_ids.unsqueeze(2).repeat(1, 1, embed_dim)
-                else:
-                    encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-                    text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+                encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
                             
                 E = torch.cat([image_embeddings, text_embeddings], dim=1)
                                 
@@ -218,7 +193,7 @@ def main():
             best_val_loss = epoch_val_loss
             val_loss_failed_to_improve_for_epochs = 0
             best_state_dict = decoder.state_dict()
-            
+
             if not mini.is_mini():
                 epoch_save_path = os.path.join(constants.DATA_PATH, f"epoch-weights/decoder-weights_epoch-{epoch}.generated.pt")
                 torch.save(best_state_dict, epoch_save_path)

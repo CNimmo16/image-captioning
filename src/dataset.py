@@ -43,3 +43,11 @@ class Flickr30kDataset(torch.utils.data.Dataset):
         caption_text = row['caption_text']
             
         return image, caption_text
+
+def make_flickr_dataset(mini: bool):
+    dataset = Flickr30kDataset()
+
+    if mini:
+        dataset = torch.utils.data.Subset(dataset, range(0, 40, 5))
+
+    return dataset
