@@ -13,7 +13,7 @@ import func.preprocessing
 from util.typecheck import assert_shape
 from util import devices, mini, debug, constants, artifacts
 from models.decoder import Decoder
-from dataset import make_flickr_dataset
+from dataset import make_flickr_dataset, make_recipe_dataset
 
 torch.manual_seed(16)
 random.seed(16)
@@ -69,12 +69,16 @@ def main():
     vocab_size = models['vocab_size']
     embed_dim = models['embed_dim']
 
-    dataset = make_flickr_dataset(mini.is_mini())
-
-    val_split = 0.2
-    data_count = len(dataset)
-    train = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split))))
-    val = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split)), data_count))
+    dataset = make_recipe_dataset(mini.is_mini())
+    
+    if mini.is_mini():
+        train = dataset
+        val = dataset
+    else:
+        val_split = 0.2
+        data_count = len(dataset)
+        train = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split))))
+        val = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split)), data_count))
 
     # Create DataLoaders for training and validation
     train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate)

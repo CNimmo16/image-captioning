@@ -1,3 +1,4 @@
 {
     "python.defaultInterpreterPath": "~/Library/Caches/pypoetry/virtualenvs/",
+    "python.analysis.indexing": false
 }

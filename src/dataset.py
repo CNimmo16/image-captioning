@@ -51,3 +51,48 @@ def make_flickr_dataset(mini: bool):
         dataset = torch.utils.data.Subset(dataset, range(0, 40, 5))
 
     return dataset
+
+class RecipeDataset(torch.utils.data.Dataset):
+    def __init__(self, transform=None):
+        data_path = kagglehub.dataset_download("pes12017000148/food-ingredients-and-recipe-dataset-with-images")
+
+        self.image_dir = os.path.join(data_path, 'Food Images/Food Images')
+
+        captions_file = os.path.join(data_path, 'Food Ingredients and Recipe Dataset with Image Name Mapping.csv')
+        
+        self.transform = transform
+        
+        self.captions_df = pd.read_csv(captions_file, sep=',')
+        
+        self.captions_df.rename({
+            'Image_Name': 'image_name',
+            'Instructions': 'caption_text'
+        }, axis=1, inplace=True)
+        
+        self.captions_df = self.captions_df[['image_name', 'caption_text']]
+
+    def __len__(self):
+        return len(self.captions_df)
+    
+    def __getitem__(self, idx):
+        row = self.captions_df.iloc[idx]
+        
+        image_name = row['image_name']
+        
+        image_path = os.path.join(self.image_dir, f"{image_name}.jpg")
+        
+        image = PIL.Image.open(image_path).convert('RGB')
+        if self.transform:
+            image = self.transform(image)
+        
+        caption_text = row['caption_text']
+            
+        return image, caption_text
+
+def make_recipe_dataset(mini: bool):
+    dataset = RecipeDataset()
+
+    if mini:
+        dataset = torch.utils.data.Subset(dataset, range(5))
+
+    return dataset

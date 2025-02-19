@@ -1,6 +1,6 @@
 import torch
 
-from dataset import make_flickr_dataset
+from dataset import make_recipe_dataset
 from bin.train import make_models, collate
 from util import artifacts, devices, mini
 from transformers import CLIPTokenizer
@@ -24,11 +24,11 @@ def main():
 
     decoder.eval()
     
-    dataset = make_flickr_dataset(mini.is_mini())
+    dataset = make_recipe_dataset(mini.is_mini())
         
     eval_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate)
     
-    max_length = 50
+    max_length = 300
     
     with torch.no_grad():
         for images, captions in eval_loader:
