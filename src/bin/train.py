@@ -186,7 +186,7 @@ def main():
                     encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
                     text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
-                    train_cache[batch_idx] = {
+                    val_cache[batch_idx] = {
                         'image_embeddings': image_embeddings,
                         'text_inputs': encoder_text_inputs,
                         'text_embeddings': text_embeddings
