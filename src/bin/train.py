@@ -105,59 +105,63 @@ def main():
     val_cache = {}
     
     for epoch in range(EPOCHS):
-        print(f"Epoch {epoch + 1}")
-        decoder.train()
-        epoch_train_loss = 0
-        train_loop = list(enumerate(train_loader))
-        for batch_idx, (images, captions) in tqdm.tqdm(train_loop, desc=f"> training"):
-            batch_size = len(images)
-            
-            optimizer.zero_grad()
-            
-            if batch_idx in train_cache:
-                cached = train_cache[batch_idx]
-                image_embeddings = cached['images']
-                text_embeddings = cached['text']
-            else:
-                encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
-                with torch.no_grad():
-                    image_embeddings = encoder.get_image_features(**encoder_image_inputs)
-                image_embeddings = image_embeddings.unsqueeze(1)
+        print(f"Epoch {epoch} {" (initial validation)" if epoch == 0 else ""}")
 
-                try:
-                    encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
-                except:
-                    print('ERROR cant encode, received:', captions)
-                    raise Exception()
-                with torch.no_grad():
-                    text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
+        if epoch > 0:
+            decoder.train()
+            epoch_train_loss = 0
+            train_loop = list(enumerate(train_loader))
+            for batch_idx, (images, captions) in tqdm.tqdm(train_loop, desc=f"> training"):
+                batch_size = len(images)
+                
+                optimizer.zero_grad()
+                
+                if batch_idx in train_cache:
+                    cached = train_cache[batch_idx]
+                    image_embeddings = cached['images']
+                    text_embeddings = cached['text']
+                else:
+                    encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
+                    with torch.no_grad():
+                        image_embeddings = encoder.get_image_features(**encoder_image_inputs)
+                    image_embeddings = image_embeddings.unsqueeze(1)
 
-                train_cache[batch_idx] = {
-                    'images': image_embeddings,
-                    'text': text_embeddings
-                }
+                    try:
+                        encoder_text_inputs = encoder_processor(text=captions, return_tensors="pt", padding=True, truncation=True).to(device)
+                    except:
+                        print('ERROR cant encode, received:', captions)
+                        raise Exception()
+                    with torch.no_grad():
+                        text_embeddings = encoder.text_model(**encoder_text_inputs).last_hidden_state
 
-            E = torch.cat([image_embeddings, text_embeddings], dim=1)
-                            
-            logits = decoder(E)
-            
-            assert_shape(logits, (batch_size, '*', vocab_size))
-            
-            # remove image embedding
-            logits_text = logits[:, :-1, :]
-            
-            loss = criterion(
-                logits_text.reshape(-1, logits_text.shape[-1]),
-                encoder_text_inputs['input_ids'].reshape(-1)
-            )
+                    train_cache[batch_idx] = {
+                        'images': image_embeddings,
+                        'text': text_embeddings
+                    }
 
-            loss.backward()
-            optimizer.step()
+                E = torch.cat([image_embeddings, text_embeddings], dim=1)
+                                
+                logits = decoder(E)
+                
+                assert_shape(logits, (batch_size, '*', vocab_size))
+                
+                # remove image embedding
+                logits_text = logits[:, :-1, :]
+                
+                loss = criterion(
+                    logits_text.reshape(-1, logits_text.shape[-1]),
+                    encoder_text_inputs['input_ids'].reshape(-1)
+                )
 
-            epoch_train_loss += loss.item()
+                loss.backward()
+                optimizer.step()
 
-            gc.collect()
-            torch.cuda.empty_cache()
+                epoch_train_loss += loss.item()
+
+                gc.collect()
+                torch.cuda.empty_cache()
+        else:
+            epoch_train_loss = 0
 
         decoder.eval()
         epoch_val_loss = 0
@@ -216,7 +220,7 @@ def main():
         print(f"Train loss: {epoch_train_loss}, val loss: {epoch_val_loss}\n")
 
         wandb.log({
-            'epoch': epoch + 1,
+            'epoch': epoch,
             'train-loss': epoch_train_loss,
             'val_loss': epoch_val_loss,
             'vanishing_gradients': vanishing_gradients,
