@@ -13,7 +13,8 @@ def main():
     
     device = devices.get_device()
 
-    encoder = models['encoder']
+    text_encoder = models['text_encoder']
+    get_image_features = models['get_image_features']
     encoder_processor = models['encoder_processor']
     decoder = models['decoder']
     vocab_size = models['vocab_size']
@@ -31,17 +32,16 @@ def main():
     max_length = tokenizer.model_max_length
     
     with torch.no_grad():
-        for images, captions in eval_loader:
-    
+        for images, captions in eval_loader:    
             encoder_image_inputs = encoder_processor(images=images, return_tensors="pt").to(device)
     
-            image_embeddings = encoder.get_image_features(**encoder_image_inputs).unsqueeze(1)
+            image_embeddings = get_image_features(**encoder_image_inputs).unsqueeze(1)
                 
             token_ids = torch.tensor([tokenizer.bos_token_id]).to(device)
 
             for i in range(max_length):
-                E = encoder.text_model(input_ids=token_ids).last_hidden_state
-                E = torch.cat([image_embeddings, E], dim=1)             
+                E = text_encoder(input_ids=token_ids).unsqueeze(0)
+                E = torch.cat([image_embeddings, E], dim=1)
             
                 logits = decoder(E)
                 logits_text = logits[:, i + 1, :]
@@ -70,6 +70,7 @@ def main():
             token_ids = [int(token.item()) for token in token_ids]
             
             desc = tokenizer.decode(token_ids, skip_special_tokens=True)
+            print(desc)
             
             fig, ax = plt.subplots(figsize=(6, 8))
             ax.set_xlim(0, 10)
