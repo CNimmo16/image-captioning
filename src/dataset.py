@@ -71,6 +71,8 @@ class RecipeDataset(torch.utils.data.Dataset):
         
         self.captions_df = self.captions_df[['image_name', 'caption_text']]
 
+        self.captions_df = self.captions_df[self.captions_df['image_name'] != '#NAME?']
+
     def __len__(self):
         return len(self.captions_df)
     
