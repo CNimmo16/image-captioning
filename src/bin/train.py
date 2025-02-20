@@ -112,9 +112,19 @@ def main():
         train = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split))))
         val = torch.utils.data.Subset(dataset, range(int(data_count * (1 - val_split)), data_count))
 
+    indices = list(range(len(train)))
+
+    # Shuffle the indices
+    random.shuffle(indices)
+
     # Create DataLoaders for training and validation
-    train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, collate_fn=collate, shuffle=False) # no per-example shuffle here - see per-batch shuffling in training loop below
-    train_loop = list(enumerate(train_loader))
+    train_loader = torch.utils.data.DataLoader(
+        train,
+        batch_size=BATCH_SIZE,
+        sampler=torch.utils.data.SubsetRandomSampler(indices), # perform shuffle once at start to allow caching batches across epochs
+        collate_fn=collate,
+        shuffle=False
+    )
 
     val_loader = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, collate_fn=collate, shuffle=True)
 
@@ -145,10 +155,7 @@ def main():
             decoder.train()
             epoch_train_loss = 0
 
-            # shuffle here so that we can reliably cache an entire batch by its index (rather than shuffling examples within the batches)
-            random.shuffle(train_loop)
-
-            for batch_idx, (images, captions) in tqdm.tqdm(train_loop, desc=f"> training"):
+            for batch_idx, (images, captions) in tqdm.tqdm(enumerate(train_loader), desc=f"> training"):
                 batch_size = len(images)
                 
                 optimizer.zero_grad()
