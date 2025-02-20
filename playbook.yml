@@ -47,12 +47,13 @@
     - name: Fetch compose file from repo
       shell: |
         cd ~/mlx
-        curl -0 https://raw.githubusercontent.com/cnimmo16/finditperhaps/main/docker-compose.prod.yml > docker-compose.yml
+        curl -0 https://raw.githubusercontent.com/cnimmo16/image-captioning/main/docker-compose.yml > docker-compose.yml
 
-    - name: Pull image
+    - name: Pull images
       shell: |
         cd ~/mlx
-        docker pull cameronnimmo/ml-search
+        docker pull cameronnimmo/recipise-fastapi
+        docker pull cameronnimmo/recipise-next
 
     - name: Copy env file to host
       ansible.builtin.copy:

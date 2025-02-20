@@ -4,3 +4,4 @@ data/*
 !data/.gitignore
 wandb/
 .env
+client/node_modules
