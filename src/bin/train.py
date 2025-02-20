@@ -155,7 +155,7 @@ def main():
             decoder.train()
             epoch_train_loss = 0
 
-            for batch_idx, (images, captions) in tqdm.tqdm(enumerate(train_loader), desc=f"> training"):
+            for batch_idx, (images, captions) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader), desc=f"> training"):
                 batch_size = len(images)
                 
                 optimizer.zero_grad()
