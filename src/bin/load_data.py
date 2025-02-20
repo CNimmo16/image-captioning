@@ -80,4 +80,6 @@ def main():
 
     print('Done processing, writing final csv...')
 
+    df[['RecipeId', 'Name']].to_csv(csv_out_path, index=False)
+
     print('Done!')
