@@ -110,9 +110,9 @@ def main():
         val_split = 0.1
         max_val_count = 5000
         data_count = len(dataset)
-        val_count = min(data_count * val_split, max_val_count)
-        train = torch.utils.data.Subset(dataset, range(data - val_count))
-        val = torch.utils.data.Subset(dataset, range(data - val_count, data))
+        val_count = round(min(data_count * val_split, max_val_count))
+        train = torch.utils.data.Subset(dataset, range(data_count - val_count))
+        val = torch.utils.data.Subset(dataset, range(data_count - val_count, data_count))
 
     indices = list(range(len(train)))
 
