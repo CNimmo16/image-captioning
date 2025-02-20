@@ -25,6 +25,8 @@ if is_mini:
 
 device = devices.get_device()
 
+print(f"INFO: Using device {device}")
+
 DECODER_LAYERS = 10
 MLP_HIDDEN_DIM = 128
 
