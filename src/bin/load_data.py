@@ -3,10 +3,11 @@ import os
 import pandas as pd
 import requests
 import swifter
+from util import is_mini
 
 dirname = os.path.dirname(__file__)
 
-NUM_IMAGES = 100000
+NUM_IMAGES = 1000 if is_mini else 100_000
 
 def main():
     data_path = kagglehub.dataset_download("irkaal/foodcom-recipes-and-reviews")
