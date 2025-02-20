@@ -36,8 +36,6 @@ async def download_images(df):
     if os.path.exists(img_out_dir):
         raise Exception(f"Path already exists {img_out_dir}")
 
-    print('Downloading images...')
-
     async def process_row(session, row, img_out_dir, pbar):
         images = row['Images']
         recipe_id = row['RecipeId']
@@ -63,7 +61,7 @@ async def download_images(df):
             pbar.update(1)
 
     async with aiohttp.ClientSession() as session:
-        with tqdm(total=len(df), desc="Downloading", unit="file") as pbar:
+        with tqdm(total=len(df), desc="Downloading images", unit="file") as pbar:
             tasks = [process_row(session, row, img_out_dir, pbar) for index, row in df.iterrows()]
             await asyncio.gather(*tasks)
 
