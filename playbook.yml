@@ -55,10 +55,33 @@
         docker pull cameronnimmo/recipise-fastapi
         docker pull cameronnimmo/recipise-next
 
+    - name: Create tmp env directory
+      ansible.builtin.file:
+        path: /tmp/env_parts
+        state: directory
+        mode: "0755"
+
     - name: Copy env file to host
       ansible.builtin.copy:
         src: .env
+        dest: /tmp/env_parts/env_part1
+
+    - name: Copy prod env file to host
+      ansible.builtin.copy:
+        src: .env.production
+        dest: /tmp/env_parts/env_part2
+
+    - name: Combine .env files
+      ansible.builtin.assemble:
+        src: /tmp/env_parts
         dest: ~/mlx/.env
+        delimiter: "\n"
+        mode: "0644"
+
+    - name: Copy weights file to host
+      ansible.builtin.copy:
+        src: data/decoder-weights_prod.generated.pt
+        dest: ~/mlx/decoder-weights.pt
 
 - name: Run docker
   hosts: cpus

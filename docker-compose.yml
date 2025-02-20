@@ -4,6 +4,8 @@ services:
     image: cameronnimmo/recipise-fastapi
     platform: linux/amd64
     env_file: .env
+    volumes:
+      - decoder-weights.pt:/app/decoder-weights.pt
 
   next:
     container_name: next
