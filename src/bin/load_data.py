@@ -7,6 +7,7 @@ import os
 from tqdm import tqdm
 import numpy as np
 from PIL import Image
+from io import BytesIO
 
 from util import mini
 
@@ -32,11 +33,6 @@ def main():
             images = row['Images']
             recipe_id = row['RecipeId']
 
-            if len(images) == 0:
-                df.drop(index=row.name, inplace=True)
-                pbar.update(1)
-                return
-
             img_url = images[0]
 
             try:
@@ -44,14 +40,14 @@ def main():
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 async with session.get(img_url) as response:
                     with open(save_path, 'wb') as file:
-                        file.write(await response.read())
-                try:
-                    img = Image.open(save_path)
-                    img.verify()
-                except Exception as e:
-                    print(f"Image for {recipe_id} is invalid, deleting...")
-                    os.remove(save_path)
-                    df.drop(index=row.name, inplace=True)
+                        img_data = await response.read()
+                        try:
+                            img = Image.open(BytesIO(img_data))
+                            img.verify()
+                            file.write(img_data)
+                        except Exception as e:
+                            print(f"Image for {recipe_id} is invalid ({e}), removing from dataframe...")
+                            df.drop(index=row.name, inplace=True)
 
             except Exception as e:
                 print(f"Failed to download the image for {recipe_id}: {e}")
@@ -70,18 +66,18 @@ def main():
         
     df = pd.read_parquet(recipes_path).head(NUM_IMAGES)
 
+    print(f"Loaded {len(df)} recipes")
+
     df['RecipeId'] = df['RecipeId'].astype(int)
 
     df.dropna(subset=['Images'], inplace=True)
 
-    chunks = [df.iloc[i:i + CHUNK_SIZE] for i in range(0, len(df), CHUNK_SIZE)]
+    df = df[df['Images'].apply(lambda x: len(x) > 0)]
 
-    for idx, chunk in enumerate(chunks):
-        print(f"Downloading images for chunk {idx + 1} of {len(chunks)}...")
+    print(f"Removed recipes with no images: {len(df)} remaining")
 
-        asyncio.run(download_images(chunk))
+    asyncio.run(download_images(df))
 
     print('Done processing, writing final csv...')
 
-    df[['RecipeId', 'Name']].to_csv(csv_out_path, index=False)
     print('Done!')
