@@ -5,6 +5,18 @@ from bin.train import make_models, collate
 from util import artifacts, devices, mini
 from matplotlib import pyplot as plt
 
+_artifacts = None
+
+def preload_artifacts():
+    global _artifacts
+
+    if _artifacts is not None:
+        return _artifacts
+
+    _artifacts = {
+        'decoder_weights': artifacts.load_artifact('decoder-weights', 'model')
+    }
+
 def predict_dish_name(image):
     models = make_models()
     
@@ -17,7 +29,7 @@ def predict_dish_name(image):
     vocab_size = models['vocab_size']
     embed_dim = models['embed_dim']
 
-    decoder_weights = artifacts.load_artifact('decoder-weights', 'model')
+    decoder_weights = preload_artifacts()['decoder_weights']
     decoder.load_state_dict(decoder_weights)
 
     decoder.eval()

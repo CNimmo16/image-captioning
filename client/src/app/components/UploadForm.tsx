@@ -6,8 +6,8 @@ import { useState } from "react"
 import Image from "next/image"
 import { useDropzone } from 'react-dropzone'
 import { IoArrowBackOutline } from "react-icons/io5";
-import {recipeSchema} from '../api/generate-recipe/route'
 import { z } from "zod"
+import { recipeSchema } from "@/schema/recipe"
 
 export default function UploadForm() {
   const [image, setImage] = useState<File | null>(null)

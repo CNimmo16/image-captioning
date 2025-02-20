@@ -1,23 +1,11 @@
+import { recipeSchema } from "@/schema/recipe";
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import { z } from "zod";
 
 const openai = new OpenAI();
 
-export const recipeSchema = z.object({
-  ingredients: z.array(z.object({
-    name: z.string(),
-    units: z.string(),
-    quantity: z.string(),
-  })),
-  steps: z.array(z.object({
-    step: z.string(),
-  }))
-})
-
 export async function POST(req: NextRequest) {
-  console.log('here')
   try {
     const formData = await req.formData()
     const image = formData.get("image") as File

@@ -9,8 +9,6 @@ from transformers import CLIPProcessor, CLIPModel, CLIPTokenizer
 import gc
 import time
 
-import func
-import func.preprocessing
 from util.typecheck import assert_shape
 from util import devices, mini, debug, constants, artifacts
 from models.decoder import Decoder
@@ -262,12 +260,12 @@ def main():
             best_val_loss = epoch_val_loss
             val_loss_failed_to_improve_for_epochs = 0
             best_state_dict = decoder.state_dict()
-
-            if not mini.is_mini():
-                epoch_save_path = os.path.join(constants.DATA_PATH, f"epoch-weights/decoder-weights_epoch-{epoch}.generated.pt")
-                torch.save(best_state_dict, epoch_save_path)
         else:
             val_loss_failed_to_improve_for_epochs += 1
+
+        if not mini.is_mini():
+            epoch_save_path = os.path.join(constants.DATA_PATH, f"epoch-weights/decoder-weights_epoch-{epoch}.generated.pt")
+            torch.save(decoder.state_dict(), epoch_save_path)
 
         if val_loss_failed_to_improve_for_epochs == EARLY_STOP_AFTER_EPOCHS:
             print(f"Validation loss failed to improve for {EARLY_STOP_AFTER_EPOCHS} epochs. Early stopping now.")

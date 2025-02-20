@@ -1,7 +1,6 @@
 import kagglehub
 import os
 import pandas as pd
-import swifter
 import aiohttp
 import asyncio
 import os
