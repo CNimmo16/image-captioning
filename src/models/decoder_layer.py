@@ -21,15 +21,18 @@ class DecoderLayer(torch.nn.Module):
         self.dropout = torch.nn.Dropout(dropout)
         
     def forward(self, E: torch.Tensor):
+        residual = E
 
         E = self.norm_1(E)
         
         dE = self.attention(E, E)
         
-        E = E + self.dropout(dE)
+        E = residual + self.dropout(dE)
         
-        E = E + self.dropout(self.mlp(E))
+        residual = E
         
         E = self.norm_2(E)
+
+        E = residual + self.dropout(self.mlp(E))
         
         return E
