@@ -17,6 +17,8 @@ def preload_artifacts():
         'decoder_weights': artifacts.load_artifact('decoder-weights', 'model')
     }
 
+    return _artifacts
+
 def predict_dish_name(image):
     models = make_models()
     
