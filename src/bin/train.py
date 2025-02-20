@@ -14,7 +14,7 @@ import func.preprocessing
 from util.typecheck import assert_shape
 from util import devices, mini, debug, constants, artifacts
 from models.decoder import Decoder
-from dataset import make_flickr_dataset, make_recipe_dataset
+from dataset import make_flickr_dataset, make_recipe_dataset, validate_data
 
 torch.manual_seed(16)
 random.seed(16)
@@ -65,6 +65,9 @@ def make_models():
     }
     
 def main():
+    print('Verifying all data is present and valid...')
+    validate_data()
+
     models = make_models()
     
     encoder = models['encoder']

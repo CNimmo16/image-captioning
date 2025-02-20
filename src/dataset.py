@@ -98,11 +98,11 @@ class RecipeDatasetA(torch.utils.data.Dataset):
 
 class RecipeDatasetB(torch.utils.data.Dataset):
     def __init__(self, transform=None):
-        recipes_path = os.path.join(dirname, '../data/recipes.csv')
+        self.recipes_path = os.path.join(dirname, '../data/recipes.csv')
         
         self.transform = transform
         
-        self.df = pd.read_csv(recipes_path)
+        self.df = pd.read_csv(self.recipes_path)
 
         self.image_dir = os.path.join(dirname, '../data/dataset-b-images')
 
@@ -133,3 +133,15 @@ def make_recipe_dataset(mini: bool):
         dataset = torch.utils.data.Subset(dataset, range(5))
 
     return dataset
+
+def validate_data():
+    datasetB = RecipeDatasetB()
+    df = datasetB.df
+    # ensure the training data is all present
+    for index, row in df.iterrows():
+        print(row)
+        img_name = f"{row['RecipeId']}.jpg"
+        image_path = os.path.join(datasetB.image_dir, img_name)
+
+        if not os.path.exists(image_path):
+            raise Exception(f"Image missing for recipe with ID {row['RecipeId']} - {image_path} does not exist")
