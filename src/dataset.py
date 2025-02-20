@@ -7,6 +7,7 @@ import shutil
 import requests
 import random
 import kagglehub
+import sys
 
 dirname = os.path.dirname(__file__)
 
@@ -19,21 +20,21 @@ class Flickr30kDataset(torch.utils.data.Dataset):
         
         self.transform = transform
         
-        self.captions_df = pd.read_csv(captions_file, sep='|', names=['image_name', 'caption_idx', 'caption_text'], skiprows=1)
+        self.df = pd.read_csv(captions_file, sep='|', names=['image_name', 'caption_idx', 'caption_text'], skiprows=1)
         
         broken_idx = 19999 # randomnly has no separator in train set
 
-        self.captions_df.drop(index=broken_idx, inplace=True)
-        self.captions_df['caption_idx'] = self.captions_df['caption_idx'].astype(np.int32)
+        self.df.drop(index=broken_idx, inplace=True)
+        self.df['caption_idx'] = self.df['caption_idx'].astype(np.int32)
         
-        self.captions_df['image_name'] = self.captions_df['image_name'].str.strip()
-        self.captions_df['caption_text'] = self.captions_df['caption_text'].str.strip()
+        self.df['image_name'] = self.df['image_name'].str.strip()
+        self.df['caption_text'] = self.df['caption_text'].str.strip()
 
     def __len__(self):
-        return len(self.captions_df)
+        return len(self.df)
     
     def __getitem__(self, idx):
-        row = self.captions_df.iloc[idx]
+        row = self.df.iloc[idx]
         
         image_name = row['image_name']
         
@@ -65,24 +66,24 @@ class RecipeDatasetA(torch.utils.data.Dataset):
         
         self.transform = transform
         
-        self.captions_df = pd.read_csv(captions_file, sep=',')
+        self.df = pd.read_csv(captions_file, sep=',')
         
-        self.captions_df.rename({
+        self.df.rename({
             'Image_Name': 'image_name',
             'Title': 'caption_text'
         }, axis=1, inplace=True)
         
-        self.captions_df = self.captions_df[['image_name', 'caption_text']]
+        self.df = self.df[['image_name', 'caption_text']]
 
-        self.captions_df = self.captions_df[self.captions_df['image_name'] != '#NAME?']
-        self.captions_df = self.captions_df[self.captions_df['caption_text'] != '']
-        self.captions_df.dropna(inplace=True)
+        self.df = self.df[self.df['image_name'] != '#NAME?']
+        self.df = self.df[self.df['caption_text'] != '']
+        self.df.dropna(inplace=True)
 
     def __len__(self):
-        return len(self.captions_df)
+        return len(self.df)
     
     def __getitem__(self, idx):
-        row = self.captions_df.iloc[idx]
+        row = self.df.iloc[idx]
         
         image_name = row['image_name']
         
@@ -135,13 +136,23 @@ def make_recipe_dataset(mini: bool):
     return dataset
 
 def validate_data():
+    print('Verifying all data is present and valid...')
+    datasetA = RecipeDatasetA()
+    for index, row in datasetA.df.iterrows():
+        img_name = f"{row['image_name']}.jpg"
+        image_path = os.path.join(datasetA.image_dir, img_name)
+
+        if not os.path.exists(image_path):
+            print(f"❗ Image missing from dataset A for recipe with name {row['caption_text']} - {image_path} does not exist")
+            sys.exit(1)
+    print('> All data present for dataset A ✅')
+    
     datasetB = RecipeDatasetB()
-    df = datasetB.df
-    # ensure the training data is all present
-    for index, row in df.iterrows():
-        print(row)
+    for index, row in datasetB.df.iterrows():
         img_name = f"{row['RecipeId']}.jpg"
         image_path = os.path.join(datasetB.image_dir, img_name)
 
         if not os.path.exists(image_path):
-            raise Exception(f"Image missing for recipe with ID {row['RecipeId']} - {image_path} does not exist")
+            print(f"❗ Image missing from dataset B for recipe with ID {row['RecipeId']} - {image_path} does not exist")
+            sys.exit(1)
+    print('> All data present for dataset B ✅')

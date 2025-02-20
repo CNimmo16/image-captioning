@@ -65,7 +65,6 @@ def make_models():
     }
     
 def main():
-    print('Verifying all data is present and valid...')
     validate_data()
 
     models = make_models()
