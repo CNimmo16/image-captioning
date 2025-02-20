@@ -141,10 +141,8 @@ def validate_data():
     for index, row in datasetA.df.iterrows():
         img_name = f"{row['image_name']}.jpg"
         image_path = os.path.join(datasetA.image_dir, img_name)
-
-        if not os.path.exists(image_path):
-            print(f"❗ Image missing from dataset A for recipe with name {row['caption_text']} - {image_path} does not exist")
-            sys.exit(1)
+        
+        validate_image('dataset A', row['caption_text'], image_path)
     print('> All data present for dataset A ✅')
     
     datasetB = RecipeDatasetB()
@@ -152,7 +150,16 @@ def validate_data():
         img_name = f"{row['RecipeId']}.jpg"
         image_path = os.path.join(datasetB.image_dir, img_name)
 
-        if not os.path.exists(image_path):
-            print(f"❗ Image missing from dataset B for recipe with ID {row['RecipeId']} - {image_path} does not exist")
-            sys.exit(1)
+        validate_image('dataset B', row['RecipeId'], image_path)
     print('> All data present for dataset B ✅')
+
+def validate_image(dataset_alias, recipe_name, image_path):
+    if not os.path.exists(image_path):
+        print(f"❗ Image missing from dataset A for recipe with name {row['caption_text']} - {image_path} does not exist")
+        sys.exit(1)
+    try:
+        img = PIL.Image.open(image_path)
+        img.verify()
+    except Exception as e:
+        print(f"❗ Image missing from dataset A for recipe with name {row['caption_text']} - {image_path} is invalid")
+        sys.exit(1)

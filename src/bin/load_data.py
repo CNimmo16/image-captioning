@@ -7,6 +7,7 @@ import asyncio
 import os
 from tqdm import tqdm
 import numpy as np
+from PIL import Image
 
 from util import mini
 
@@ -14,7 +15,7 @@ dirname = os.path.dirname(__file__)
 
 NUM_IMAGES = 1000 if mini.is_mini() else 100_000
 
-CHUNK_SIZE = 10_000
+CHUNK_SIZE = 5000
 
 def main():
     csv_out_path = os.path.join(dirname, '../../data/recipes.csv')
@@ -45,6 +46,13 @@ def main():
                 async with session.get(img_url) as response:
                     with open(save_path, 'wb') as file:
                         file.write(await response.read())
+                try:
+                    img = Image.open(save_path)
+                    img.verify()
+                except Exception as e:
+                    print(f"Image for {recipe_id} is invalid, deleting...")
+                    os.remove(save_path)
+                    df.drop(index=row.name, inplace=True)
 
             except Exception as e:
                 print(f"Failed to download the image for {recipe_id}: {e}")
