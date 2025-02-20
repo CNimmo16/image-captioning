@@ -77,6 +77,8 @@ def make_models():
 def main():
     validate_data()
 
+    print('Loading models...')
+
     models = make_models()
     
     tokenizer = models['tokenizer']
@@ -86,9 +88,15 @@ def main():
     vocab_size = models['vocab_size']
     embed_dim = models['embed_dim']
 
+    print('Initialising dataset...')
+
     dataset = make_recipe_dataset(mini.is_mini())
 
+    print('Loading BLEU for evaluation...')
+
     bleu = evaluate.load("bleu")
+
+    print('Initialising training...')
     
     if mini.is_mini():
         train = dataset
