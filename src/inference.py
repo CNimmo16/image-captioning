@@ -1,73 +1,66 @@
-import pandas as pd
 import torch
 
-from util import artifacts, constants, chroma, devices
-import models
-import dataset
-import models.query_embedder, models.query_projector, models.doc_projector, models.vectors
+from dataset import make_recipe_dataset
+from bin.train import make_models, collate
+from util import artifacts, devices, mini
+from matplotlib import pyplot as plt
 
-MAX_RESULTS = 5
-
-device = devices.get_device()
-
-query_projector = None
-docs = None
-
-def load_model_and_docs():
-    global query_projector, docs
-    if query_projector is None or docs is None:
-        query_projector = models.query_projector.Model().to(device)
-
-        query_state_dict = artifacts.load_artifact('query-projector-weights', 'model')
-
-        query_projector.load_state_dict(query_state_dict)
-        query_projector.eval()
-
-        docs = pd.read_csv(constants.DOCS_PATH)
-
-    return query_projector, docs
-
-def get_random_query():
-    sample_queries = pd.read_csv(constants.SAMPLE_QUERIES_PATH)
-
-    query = sample_queries.sample(1).iloc[0]['query']
-
-    return query
-
-def get_doc_encoding(doc_projector: models.doc_projector.Model, doc_text: str):
-    doc_embeddings = models.doc_embedder.get_embeddings_for_doc(doc_text)
-
-    batch, lengths = dataset.pad_batch_values([doc_embeddings])
-
-    encoded, _ = doc_projector(batch, lengths)
-    encoded_list = encoded.detach().tolist()
-
-    if (len(encoded_list) > 1):
-        raise ValueError(f"Expected 1 encoded vector, got {len(encoded_list)}")
+def predict_dish_name(image):
+    models = make_models()
     
-    encoded_item = encoded_list[0]
+    device = devices.get_device()
 
-    return encoded_item
+    tokenizer = models['tokenizer']
+    encoder = models['encoder']
+    encoder_processor = models['encoder_processor']
+    decoder = models['decoder']
+    vocab_size = models['vocab_size']
+    embed_dim = models['embed_dim']
 
-def search(query: str):
-    query_projector, docs = load_model_and_docs()
+    decoder_weights = artifacts.load_artifact('decoder-weights', 'model')
+    decoder.load_state_dict(decoder_weights)
 
-    query_embeddings = models.query_embedder.get_embeddings_for_query(query)
-
-    batch = [query_embeddings]
-
-    padded_embeddings, lengths = dataset.pad_batch_values(batch)
-
-    encoded_query_batch, _ = query_projector(padded_embeddings, lengths)
+    decoder.eval()
     
-    encoded_query_batch_list = encoded_query_batch.detach().tolist()
+    max_length = tokenizer.model_max_length
+    
+    with torch.no_grad():    
+        encoder_image_inputs = encoder_processor(images=[image], return_tensors="pt").to(device)
 
-    collection = chroma.client.get_collection(name="docs")
-    nearest_docs = collection.query(
-        query_embeddings=encoded_query_batch_list,
-        n_results=5,
-    )
-    nearest_doc_refs = nearest_docs['ids'][0]
-    nearest_docs = [docs[docs['doc_ref'] == id].iloc[0].to_dict() for id in nearest_doc_refs]
+        image_embeddings = encoder.get_image_features(**encoder_image_inputs).unsqueeze(1)
+            
+        token_ids = torch.tensor([tokenizer.bos_token_id]).to(device)
 
-    return nearest_docs
+        for i in range(max_length):
+            E = encoder.text_model(input_ids=token_ids).last_hidden_state
+            E = torch.cat([image_embeddings, E], dim=1)             
+        
+            logits = decoder(E)
+            logits_text = logits[:, i + 1, :]
+            logits_text = logits_text.reshape(-1, logits_text.shape[-1])
+            
+            # # Apply temperature scaling
+            # logits = logits / temperature
+            
+            # # Top-k and top-p filtering
+            # filtered_logits = top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
+                            
+            # # Sample next token
+            probs = torch.nn.functional.softmax(logits_text, dim=-1).squeeze(1)
+            
+            next_token = torch.multinomial(probs, num_samples=1)
+                                
+            next_token = torch.tensor([next_token]).to(device)
+            
+            # Append token to input
+            token_ids = torch.cat([token_ids, next_token], dim=0)
+            
+            # Stop if EOS token is generated
+            if next_token.item() == tokenizer.eos_token_id:
+                break
+
+        token_ids = [int(token.item()) for token in token_ids]
+        
+        desc = tokenizer.decode(token_ids, skip_special_tokens=True)
+        
+        return desc

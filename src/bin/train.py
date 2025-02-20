@@ -46,7 +46,13 @@ hyperparams = {
     "architecture_version": 4 # change this manually when the model's architecture changes
 }
 
+models = None
+
 def make_models():
+    global models
+    if models:
+        return models
+
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
     encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
@@ -59,7 +65,7 @@ def make_models():
     
     embed_dim = encoder.text_model.config.hidden_size
 
-    return {
+    models = {
         'vocab_size': vocab_size,
         'embed_dim': embed_dim,
         'encoder': encoder,
@@ -67,6 +73,8 @@ def make_models():
         'encoder_processor': CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32"),
         'decoder': Decoder(vocab_size, DECODER_LAYERS, embed_dim, MLP_HIDDEN_DIM, DROPOUT).to(device)
     }
+
+    return models
     
 def main():
     validate_data()

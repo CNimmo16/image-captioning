@@ -1,69 +1,72 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 from typing import Annotated
 import logging
+from pydantic import BaseModel
+import base64
+from io import BytesIO
+from PIL import Image
 
-from bin.cache_docs import main as cache_docs
 import inference
-from models import vectors
-from util import chroma
+# from models import vectors
+# from util import chroma
 
 import os
 dirname = os.path.dirname(__file__)
 
 app = FastAPI()
 
-templates = Jinja2Templates(directory=os.path.join(dirname, "web/templates"))
+# vectors.get_vecs()
 
-static_dir = os.path.join(dirname, "web/static")
+# print('Checking if docs have been cached...')
+# try:
+#     docs = chroma.client.get_collection(name="docs")
+#     count = docs.count()
+#     print(f"Docs collection already exists, skipping caching. (doc count: {count})")
+# except Exception:
+#     print('Docs not cached. Storing vectors now.')
+#     cache_docs()
+#     print('> Done')
 
-app.mount(static_dir, StaticFiles(directory=static_dir), name="static")
+def base64_to_pil(image_base64: str) -> Image.Image:
+    image_data = base64.b64decode(image_base64)
+    image = Image.open(BytesIO(image_data))
+    return image
 
-vectors.get_vecs()
+class Body(BaseModel):
+    image: str
 
-print('Checking if docs have been cached...')
-try:
-    docs = chroma.client.get_collection(name="docs")
-    count = docs.count()
-    print(f"Docs collection already exists, skipping caching. (doc count: {count})")
-except Exception:
-    print('Docs not cached. Storing vectors now.')
-    cache_docs()
-    print('> Done')
+@app.post("/predict")
+async def root(request: Request, body: Body):
+    image = base64_to_pil(body.image)
 
-@app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse(
-        request=request, name="index.j2"
-    )
+    prediction = inference.predict_dish_name(image)
+    print(prediction)
+    return {
+        'dish_name': prediction
+    }
 
-@app.post("/search", response_class=RedirectResponse)
-async def root(request: Request, query: Annotated[str, Form()]):
-    return RedirectResponse(url=f"/results?query={query}", status_code=302)
-
-@app.get("/results", response_class=HTMLResponse)
-async def root(request: Request, query: str):
-    try:
-        results = inference.search(query)
-        for result in results:
-            result['summary'] = result['doc_text'].replace("\\r\\n", "")[0:200]
-        return templates.TemplateResponse(
-            request=request, name="index.j2", context={"query": query, "results": results}
-        )
-    except Exception:
-        logging.exception("Query failed")
-        return templates.TemplateResponse(
-            request=request, name="index.j2", context={"query": query, "error": "Something went wrong"}
-        )
+# @app.get("/results", response_class=HTMLResponse)
+# async def root(request: Request, query: str):
+#     try:
+#         results = inference.search(query)
+#         for result in results:
+#             result['summary'] = result['doc_text'].replace("\\r\\n", "")[0:200]
+#         return templates.TemplateResponse(
+#             request=request, name="index.j2", context={"query": query, "results": results}
+#         )
+#     except Exception:
+#         logging.exception("Query failed")
+#         return templates.TemplateResponse(
+#             request=request, name="index.j2", context={"query": query, "error": "Something went wrong"}
+#         )
 
 
-@app.get("/lucky", response_class=RedirectResponse)
-async def root(request: Request):
-    query = inference.get_random_query()
+# @app.get("/lucky", response_class=RedirectResponse)
+# async def root(request: Request):
+#     query = inference.get_random_query()
 
-    return RedirectResponse(url=f"/results?query={query}", status_code=302)
+#     return RedirectResponse(url=f"/results?query={query}", status_code=302)
 
 if __name__ == "__main__":
     import uvicorn
