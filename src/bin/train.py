@@ -32,7 +32,7 @@ BATCH_SIZE = 128
 LEARNING_RATE = 0.0003
 DROPOUT = 0.15
 EPOCHS = 20
-EARLY_STOP_AFTER_EPOCHS = False
+EARLY_STOP_AFTER_EPOCHS = float('inf')
     
 hyperparams = {
     "is_mini": is_mini,
@@ -46,7 +46,7 @@ hyperparams = {
 
 models = None
 
-def make_models():
+def make_models(eval: bool):
     global models
     if models:
         return models
@@ -55,9 +55,14 @@ def make_models():
 
     encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
     
-    for param in encoder.vision_model.parameters():
-        # freeze vision model while finetuning text
-        param.requires_grad = False
+    if eval:
+        for param in encoder.parameters():
+            # freeze whole model for evaluation
+            param.requires_grad = False
+    else:
+        for param in encoder.vision_model.parameters():
+            # freeze vision model while finetuning text
+            param.requires_grad = False
 
     vocab_size = encoder.text_model.config.vocab_size
     
@@ -79,7 +84,7 @@ def main():
 
     print('Loading models...')
 
-    models = make_models()
+    models = make_models(eval=False)
     
     tokenizer = models['tokenizer']
     encoder = models['encoder']

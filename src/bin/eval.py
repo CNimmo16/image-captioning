@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from inference import predict_dish_name
 
 def main():
-    models = make_models()
+    models = make_models(eval=True)
 
     tokenizer = models['tokenizer']
 

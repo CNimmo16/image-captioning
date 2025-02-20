@@ -20,7 +20,7 @@ def preload_artifacts():
     return _artifacts
 
 def predict_dish_name(image):
-    models = make_models()
+    models = make_models(eval=True)
     
     device = devices.get_device()
 
