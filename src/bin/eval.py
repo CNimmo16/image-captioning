@@ -3,16 +3,14 @@ import torch
 from dataset import make_recipe_dataset
 from bin.train import make_models, collate
 from util import artifacts, devices, mini
-from transformers import CLIPTokenizer
 from matplotlib import pyplot as plt
 
 def main():
     models = make_models()
-
-    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
     
     device = devices.get_device()
 
+    tokenizer = models['tokenizer']
     encoder = models['encoder']
     encoder_processor = models['encoder_processor']
     decoder = models['decoder']

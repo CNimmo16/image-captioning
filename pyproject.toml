@@ -26,6 +26,7 @@ dependencies = [
     "transformers>=4.48.3",
     "scikit-learn>=1.6.1",
     "kagglehub>=0.3.8",
+    "evaluate>=0.4.3",
 ]
 license = {text = "MIT"}
 

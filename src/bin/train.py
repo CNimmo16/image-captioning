@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import wandb
 import numpy as np
-from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPProcessor, CLIPModel, CLIPTokenizer
 import gc
 import time
 
@@ -15,6 +15,7 @@ from util.typecheck import assert_shape
 from util import devices, mini, debug, constants, artifacts
 from models.decoder import Decoder
 from dataset import make_flickr_dataset, make_recipe_dataset, validate_data
+import evaluate
 
 torch.manual_seed(16)
 random.seed(16)
@@ -46,6 +47,8 @@ hyperparams = {
 }
 
 def make_models():
+    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+
     encoder = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
     
     for param in encoder.vision_model.parameters():
@@ -60,6 +63,7 @@ def make_models():
         'vocab_size': vocab_size,
         'embed_dim': embed_dim,
         'encoder': encoder,
+        'tokenizer': tokenizer,
         'encoder_processor': CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32"),
         'decoder': Decoder(vocab_size, DECODER_LAYERS, embed_dim, MLP_HIDDEN_DIM, DROPOUT).to(device)
     }
@@ -69,6 +73,7 @@ def main():
 
     models = make_models()
     
+    tokenizer = models['tokenizer']
     encoder = models['encoder']
     encoder_processor = models['encoder_processor']
     decoder = models['decoder']
@@ -76,6 +81,8 @@ def main():
     embed_dim = models['embed_dim']
 
     dataset = make_recipe_dataset(mini.is_mini())
+
+    bleu = evaluate.load("bleu")
     
     if mini.is_mini():
         train = dataset
@@ -178,6 +185,7 @@ def main():
 
         decoder.eval()
         epoch_val_loss = 0
+        epoch_bleu_score = 0
         with torch.no_grad():
             for images, captions in tqdm.tqdm(val_loader, desc=f"> validating"):
                 batch_size = len(images)
@@ -202,6 +210,17 @@ def main():
                     logits_text.reshape(-1, logits_text.shape[-1]),
                     encoder_text_inputs['input_ids'].reshape(-1)
                 )
+                
+                predicted_token_ids = torch.argmax(logits_text, dim=-1)
+
+                predictions = tokenizer.batch_decode(predicted_token_ids, skip_special_tokens=True)
+
+                references = [c.lower() for c in captions]
+                predictions = [';;;;;;;' if x == '' else x for x in predictions] # avoid empty strings which bleu cant deal with
+
+                results = bleu.compute(predictions=predictions, references=references)
+                
+                epoch_bleu_score += results['bleu']
 
                 epoch_val_loss += loss.item()
 
@@ -214,17 +233,19 @@ def main():
         
         epoch_train_loss = epoch_train_loss / len(train_loader)
         epoch_val_loss = epoch_val_loss / len(val_loader)
+        epoch_bleu_score = epoch_bleu_score / len(val_loader)
         
         if exploding_gradients > 0 or vanishing_gradients > 0:
             print('Clipping gradients...')
             torch.nn.utils.clip_grad_norm_(decoder.parameters(), 1.0)
                             
-        print(f"Train loss: {epoch_train_loss}, val loss: {epoch_val_loss}\n")
+        print(f"Train loss: {epoch_train_loss}, val loss: {epoch_val_loss}, bleu score: {epoch_bleu_score}\n")
 
         wandb.log({
             'epoch': epoch,
             'train-loss': epoch_train_loss,
             'val_loss': epoch_val_loss,
+            'bleu_score': epoch_bleu_score,
             'vanishing_gradients': vanishing_gradients,
             'exploding_gradients': exploding_gradients
         })

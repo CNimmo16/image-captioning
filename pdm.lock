@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:b7886ee1ac4e8bd0fb68629e03ae11595096c276b73158ec8fa4d1de49da026a"
+content_hash = "sha256:5f05c3144cb03ed945f0c1a1223fc9fd85904201e13f65e958d30a7024caef12"
 
 [[metadata.targets]]
 requires_python = "==3.9.*"
@@ -550,6 +550,31 @@ marker = "python_version < \"3.10\""
 files = [
     {file = "eval_type_backport-0.2.2-py3-none-any.whl", hash = "sha256:cb6ad7c393517f476f96d456d0412ea80f0a8cf96f6892834cd9340149111b0a"},
     {file = "eval_type_backport-0.2.2.tar.gz", hash = "sha256:f0576b4cf01ebb5bd358d02314d31846af5e07678387486e2c798af0e7d849c1"},
+]
+
+[[package]]
+name = "evaluate"
+version = "0.4.3"
+requires_python = ">=3.8.0"
+summary = "HuggingFace community-driven open-source library of evaluation"
+groups = ["default"]
+dependencies = [
+    "datasets>=2.0.0",
+    "dill",
+    "fsspec[http]>=2021.05.0",
+    "huggingface-hub>=0.7.0",
+    "importlib-metadata; python_version < \"3.8\"",
+    "multiprocess",
+    "numpy>=1.17",
+    "packaging",
+    "pandas",
+    "requests>=2.19.0",
+    "tqdm>=4.62.1",
+    "xxhash",
+]
+files = [
+    {file = "evaluate-0.4.3-py3-none-any.whl", hash = "sha256:47d8770bdea76e2c2ed0d40189273027d1a41ccea861bcc7ba12d30ec5d1e517"},
+    {file = "evaluate-0.4.3.tar.gz", hash = "sha256:3a5700cf83aabee9549264e1e5666f116367c61dbd4d38352015e859a5e2098d"},
 ]
 
 [[package]]
