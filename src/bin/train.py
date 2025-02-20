@@ -28,11 +28,11 @@ device = devices.get_device()
 DECODER_LAYERS = 10
 MLP_HIDDEN_DIM = 128
 
-BATCH_SIZE = 64
-LEARNING_RATE = 0.001
+BATCH_SIZE = 128
+LEARNING_RATE = 0.0003
 DROPOUT = 0.15
-EPOCHS = 100
-EARLY_STOP_AFTER_EPOCHS = 5
+EPOCHS = 20
+EARLY_STOP_AFTER_EPOCHS = False
     
 hyperparams = {
     "is_mini": is_mini,
