@@ -15,7 +15,7 @@ dirname = os.path.dirname(__file__)
 
 NUM_IMAGES = 1000 if mini.is_mini() else 100_000
 
-CHUNK_SIZE = 5000
+CHUNK_SIZE = 10000
 
 def main():
     csv_out_path = os.path.join(dirname, '../../data/recipes.csv')
