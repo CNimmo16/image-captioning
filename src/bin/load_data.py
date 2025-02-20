@@ -5,6 +5,7 @@ import swifter
 import aiohttp
 import asyncio
 import os
+from tqdm import tqdm
 
 from util import mini
 
@@ -37,12 +38,13 @@ async def download_images(df):
 
     print('Downloading images...')
 
-    async def process_row(session, row, img_out_dir):
+    async def process_row(session, row, img_out_dir, pbar):
         images = row['Images']
         recipe_id = row['RecipeId']
 
         if len(images) == 0:
             df.drop(index=row.name, inplace=True)
+            pbar.update(1)
             return
 
         img_url = images[0]
@@ -57,10 +59,13 @@ async def download_images(df):
         except Exception as e:
             print(f"Failed to download the image for {recipe_id}: {e}")
             df.drop(index=row.name, inplace=True)
+        finally:
+            pbar.update(1)
 
     async with aiohttp.ClientSession() as session:
-        tasks = [process_row(session, row, img_out_dir) for index, row in df.iterrows()]
-        await asyncio.gather(*tasks)
+        with tqdm(total=len(df), desc="Downloading", unit="file") as pbar:
+            tasks = [process_row(session, row, img_out_dir, pbar) for index, row in df.iterrows()]
+            await asyncio.gather(*tasks)
 
     print('Done processing, writing final csv...')
 
