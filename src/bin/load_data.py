@@ -12,7 +12,7 @@ from util import mini
 
 dirname = os.path.dirname(__file__)
 
-NUM_IMAGES = 1000 if mini.is_mini() else 100_000
+NUM_IMAGES = 1000 if mini.is_mini() else 300_000
 
 CHUNK_SIZE = 10000
 
