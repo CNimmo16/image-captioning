@@ -23,7 +23,7 @@ def main():
     
     with torch.no_grad():
         def predict(images, captions):
-            prediction = predict_dish_name(images[0], temperature=3, top_k=0)
+            prediction = predict_dish_name(images[0], temperature=0.7)
             return images, captions, prediction
 
         predictions = [predict(images, captions) for images, captions in eval_loader]

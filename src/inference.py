@@ -19,20 +19,7 @@ def preload_artifacts():
 
     return _artifacts
 
-def top_k_top_p_filtering(logits, top_k, top_p):
-    sorted_logits, sorted_indices = torch.sort(logits, descending=True)
-    cumulative_probs = torch.cumsum(torch.nn.functional.softmax(sorted_logits, dim=-1), dim=-1)
-    
-    # Remove tokens with cumulative probability above top_p
-    sorted_indices_to_remove = cumulative_probs > top_p
-    if top_k > 0:
-        sorted_indices_to_remove[:, top_k:] = True
-    
-    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-    logits[indices_to_remove] = -float("Inf")
-    return logits
-
-def predict_dish_name(image, temperature=1.0, top_k=100, top_p=1.0):
+def predict_dish_name(image, temperature=1.0):
     models = make_models(eval=True)
     
     device = devices.get_device()
@@ -69,9 +56,6 @@ def predict_dish_name(image, temperature=1.0, top_k=100, top_p=1.0):
             
             # Apply temperature scaling
             logits_text = logits_text / temperature
-            
-            # Apply top-k and top-p filtering
-            logits_text = top_k_top_p_filtering(logits_text, top_k=top_k, top_p=top_p)
             
             # Sample next token
             probs = torch.nn.functional.softmax(logits_text, dim=-1).squeeze(1)
